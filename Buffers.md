@@ -21,6 +21,7 @@ void WriteHello(IBufferWriter<byte> writer)
     // Request at least 5 bytes
     Span<byte> span = writer.GetSpan(5);
     ReadOnlySpan<char> helloSpan = "Hello".AsSpan();
+    // Convert and copy ReadOnlySpan<char> to Span<byte>
     int written = Encoding.ASCII.GetBytes(helloSpan, span);
     
     // Tell the writer how many bytes we wrote
@@ -48,13 +49,14 @@ void WriteHello(IBufferWriter<byte> writer)
 
 - `GetSpan` and `GetMemory` return a buffer with at least the requested amount of memory. Don't assume exact buffer sizes.
 - There is no guarantee that successive calls will return the same buffer or the same-sized buffer.
+- In general, every call to `GetMemory`/`GetSpan` should be paired with a call to `Advance`. Don't call `GetMemory` or `Advance` successively.
 - You must request a new buffer after calling `Advance` to continue writing more data; you cannot write to a previously acquired buffer.
 
 ## [ReadOnlySequence\<T\>](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.readonlysequence-1)
 
 ![image](https://user-images.githubusercontent.com/95136/64049773-cbd04600-cb2a-11e9-9d37-404488a2d6d5.png)
 
-`ReadOnlySequence<T>` is a struct that can represent a contiguous or discontiguous sequence of T. It can be constructed from:
+`ReadOnlySequence<T>` is a struct that represents a contiguous or discontiguous sequence of T. It can be constructed from:
 1. A `T[]`
 1. A `ReadOnlyMemory<T>`
 1. A pair of linked list node [`ReadOnlySequenceSegment<T>`](https://docs.microsoft.com/en-us/dotnet/api/system.buffers.readonlysequencesegment-1?view=netstandard-2.1) and index to represent the start and end position of the sequence
@@ -309,6 +311,7 @@ There are several quirks when dealing with a `ReadOnlySequence<T>`/`SequencePosi
 - Arithmetic cannot be performed on `SequencePosition` without the `ReadOnlySequence<T>`. This means doing simple things like `position++` looks like `ReadOnlySequence<T>.GetPosition(position, 1)`.
 - `GetPosition(long)` does **not** support negative indexes. This means it's impossible to get the second to last character without walking all segments.
 - `SequencePosition`(s) cannot be compared. This makes it hard to know if one position is greater than or less than another position and makes it hard to write some parsing algorithms.
+- Do not try to create a `SequencePosition` to use withing a `ReadOnlySequence<T>`
 - `ReadOnlySequence<T>` is bigger than an object reference and should be passed by in or ref where possible. This reduces copies of the struct.
 - Empty segments are valid within a `ReadOnlySequence<T>` and can appear when iterating using `ReadOnlySequence<T>.TryGet` or slicing the sequence using `ReadOnlySequence<T>.Slice()` with `SequencePosition`(s).
 
